@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>С днём рождения — путешествие</title>
+<!--
+  КАК ПОДКЛЮЧИТЬ РЕАЛЬНЫЕ ВИДЕО ИЗ KLING:
+  Создай рядом с этим html-файлом папку "assets" и положи туда 4 файла
+  с именами ровно такими:
+    earth-sun.mp4
+    sun-jupiter.mp4
+    jupiter-saturn.mp4
+    saturn-neptune.mp4
+  Сайт сам их подхватит вместо процедурной анимации звёзд.
+  Пока файлов нет — показывается сгенерированный кодом warp-эффект (звёзды).
+
+  МУЗЫКА:
+  В той же папке "assets" должен лежать файл
+    mixkit-where-are-my-boots-820.mp3
+  Он подключается автоматически как фоновая музыка.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,500&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-deep:#0a0e24;
+    --gold:#f0c674;
+    --nebula:#b98cd6;
+    --cream:#f4f1ea;
+    --muted:#8b91b8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-snap-type:y proximity;}
+  body{
+    background:var(--bg-deep);
+    color:var(--cream);
+    font-family:'Jost',sans-serif;
+    overflow-x:hidden;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}
+  }
+
+  canvas#warp{
+    position:fixed; top:0; left:0;
+    width:100%; height:100%;
+    z-index:0;
+  }
+
+  .scene{
+    position:relative;
+    z-index:1;
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:3rem 1.5rem;
+  }
+  .scene.stop{ scroll-snap-align:start; }
+  .scene.transit{ min-height:140vh; }
+
+  .transit-video{
+    position:absolute; inset:0;
+    width:100%; height:100%;
+    object-fit:cover;
+    opacity:0;
+    transition:opacity 0.6s ease;
+    z-index:0;
+  }
+  .transit-video.video-ready{ opacity:1; }
+
+  .stop-label{
+    font-size:0.7rem;
+    letter-spacing:0.35em;
+    text-transform:uppercase;
+    color:var(--gold);
+    opacity:0.85;
+    margin-bottom:1.4rem;
+    display:block;
+  }
+  .stop-text{
+    max-width:560px;
+    opacity:0;
+    transform:translateY(18px);
+    transition:opacity 0.9s ease, transform 0.9s ease;
+  }
+  .stop-text.visible{ opacity:1; transform:translateY(0); }
+  .stop-text h1, .stop-text h2{
+    font-family:'Cormorant Garamond',serif;
+    font-weight:500;
+    line-height:1.15;
+    background:linear-gradient(135deg,var(--cream) 30%,var(--gold) 70%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .stop-text h1{ font-size:clamp(2.2rem,7vw,4.2rem); }
+  .stop-text h2{ font-size:clamp(1.7rem,5vw,2.8rem); }
+  .stop-text p{
+    margin-top:1.3rem;
+    color:var(--muted);
+    font-size:1rem;
+    font-weight:300;
+    max-width:38ch;
+    margin-left:auto; margin-right:auto;
+  }
+  .name{ font-style:italic; color:var(--nebula); -webkit-text-fill-color:var(--nebula); }
+  .stop-text h1 .emoji, .stop-text h2 .emoji{
+    display:inline-block;
+    isolation:isolate;
+    color: var(--cream);
+    background: none;
+    -webkit-background-clip: initial;
+    background-clip: initial;
+    -webkit-text-fill-color: initial;
+  }
+
+  .scroll-cue{
+    margin-top:3rem;
+    font-size:0.7rem;
+    letter-spacing:0.2em;
+    text-transform:uppercase;
+    color:var(--muted);
+    opacity:0.6;
+    animation:floatHint 2.4s ease-in-out infinite;
+  }
+  @keyframes floatHint{0%,100%{transform:translateY(0);}50%{transform:translateY(8px);}}
+
+  /* PLANET VISUALS */
+  .planet-visual{
+    width:clamp(150px,38vw,300px);
+    height:clamp(150px,38vw,300px);
+    border-radius:50%;
+    position:relative;
+    margin-bottom:2.2rem;
+    animation:idleBob 6s ease-in-out infinite;
+  }
+  @keyframes idleBob{0%,100%{transform:translateY(0) rotate(0deg);}50%{transform:translateY(-10px) rotate(3deg);}}
+
+  .earth-visual{
+    background:
+      radial-gradient(ellipse 16% 12% at 26% 20%,#379e50,transparent 65%),
+      radial-gradient(ellipse 18% 13% at 30% 25%,#3fae5a,transparent 65%),
+      radial-gradient(ellipse 14% 11% at 22% 27%,#379e50,transparent 65%),
+      radial-gradient(ellipse 15% 12% at 27% 32%,#3aab5a,transparent 65%),
+      radial-gradient(ellipse 17% 13% at 61% 40%,#379e50,transparent 65%),
+      radial-gradient(ellipse 15% 11% at 66% 45%,#3fae5a,transparent 65%),
+      radial-gradient(ellipse 13% 10% at 59% 48%,#3aab5a,transparent 65%),
+      radial-gradient(ellipse 16% 12% at 36% 70%,#379e50,transparent 65%),
+      radial-gradient(ellipse 13% 10% at 41% 75%,#3fae5a,transparent 65%),
+      radial-gradient(ellipse 12% 9% at 32% 76%,#3aab5a,transparent 65%),
+      radial-gradient(circle at 32% 30%,#4fb3ff,#1c6fd9 55%,#0a3a99 85%);
+    box-shadow:0 0 60px rgba(60,140,255,0.35);
+  }
+  .sun-visual{
+    background:radial-gradient(circle,#fff6d1,#ffcf5c 40%,#ff8c1a 72%,#c0530a 100%);
+    box-shadow:0 0 100px rgba(255,180,60,0.55), 0 0 200px rgba(255,140,20,0.3);
+  }
+  .jupiter-visual{
+    background:repeating-linear-gradient(0deg,#d9b98a 0 8%,#c99a63 8% 16%,#e8d3ab 16% 22%,#b9855a 22% 30%,#e0c088 30% 38%,#c99a63 38% 46%,#d9b98a 46% 54%,#a9764f 54% 60%,#e8d3ab 60% 68%,#c99a63 68% 76%,#d9b98a 76% 100%);
+    box-shadow:0 0 70px rgba(220,170,110,0.3);
+  }
+  .jupiter-visual .red-spot{
+    position:absolute; width:22%; height:14%;
+    background:radial-gradient(circle,#c8552f,#8f3a1f);
+    border-radius:50%;
+    top:52%; left:18%;
+    opacity:0.85;
+  }
+  .saturn-visual{
+    background:radial-gradient(circle at 35% 30%,#f3dfb0,#d4ac6e 60%,#9c7143 90%);
+    box-shadow:0 0 70px rgba(230,190,120,0.3);
+  }
+  .saturn-visual .rings{
+    position:absolute;
+    width:180%; height:36%;
+    border:solid rgba(240,215,170,0.55);
+    border-width:6px 0;
+    border-radius:50%;
+    top:50%; left:-40%;
+    transform:translateY(-50%) rotate(-18deg);
+    box-shadow:0 0 25px rgba(240,215,170,0.25);
+  }
+  .neptune-visual{
+    background:radial-gradient(circle at 32% 30%,#5c8fe0,#22459c 55%,#0b1c4d 90%);
+    box-shadow:0 0 70px rgba(70,110,220,0.4);
+  }
+
+  nav.dots{
+    position:fixed;
+    right:1.2rem; top:50%;
+    transform:translateY(-50%);
+    z-index:5;
+    display:flex; flex-direction:column; gap:0.9rem;
+  }
+  nav.dots button{
+    width:9px; height:9px;
+    border-radius:50%;
+    border:1px solid var(--muted);
+    background:transparent;
+    padding:0; cursor:pointer;
+    transition:background 0.3s, border-color 0.3s, transform 0.3s;
+  }
+  nav.dots button.active{    background:var(--gold);
+    border-color:var(--gold);
+    transform:scale(1.3);
+  }
+
+  .sound-toggle{
+    position:fixed;
+    left:1.2rem; bottom:1.4rem;
+    z-index:6;
+    width:46px; height:46px;
+    border-radius:50%;
+    background:rgba(20,24,50,0.55);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+    border:1px solid rgba(240,198,116,0.35);
+    color:var(--cream);
+    font-size:1.15rem;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer;
+    transition:border-color 0.3s, transform 0.3s, opacity 0.3s;
+  }
+  .sound-toggle:hover{ border-color:var(--gold); transform:scale(1.07); }
+  .sound-toggle.muted{ opacity:0.55; }
+
+  footer{
+    position:relative; z-index:1;
+    text-align:center;
+    padding:3rem 1.5rem 4rem;
+    font-size:0.7rem;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:var(--muted);
+    opacity:0.5;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="warp"></canvas>
+
+<button id="soundToggle" class="sound-toggle" aria-label="Выключить музыку">🔊</button>
+<audio id="bgm" loop preload="auto" playsinline muted src="assets/mixkit-where-are-my-boots-820.mp3"></audio>
+
+<nav class="dots" aria-label="Навигация по остановкам">
+  <button data-target="earth" class="active" aria-label="Земля"></button>
+  <button data-target="sun" aria-label="Солнце"></button>
+  <button data-target="jupiter" aria-label="Юпитер"></button>
+  <button data-target="saturn" aria-label="Сатурн"></button>
+  <button data-target="neptune" aria-label="Нептун"></button>
+</nav>
+
+<section class="scene stop" id="earth" data-planet="earth">
+  <div class="planet-visual earth-visual"></div>
+  <div class="stop-text visible">
+    <span class="stop-label">Точка отправления 🚀</span>
+    <h1>Пристегнись.<br>Мы летим через всю вселенную.</h1>
+    <p>Всего четыре прыжка отделяют нас от главного пожелания. Поехали? <span class="emoji">✨</span></p>
+  </div>
+  <div class="scroll-cue">скролль вниз, капитан ✦</div>
+</section>
+
+<section class="scene transit" data-type="transit" id="t1">
+  <video class="transit-video" muted playsinline loop preload="none" data-src="assets/earth-sun.mp4"></video>
+</section>
+
+<section class="scene stop" id="sun" data-planet="sun">
+  <div class="planet-visual sun-visual"></div>
+  <div class="stop-text">
+    <span class="stop-label">Остановка 1 — Солнце ☀️</span>
+    <h2>Самая яркая звезда системы —<br>и всё равно не ярче твоей улыбки <span class="emoji">🤗</span></h2>
+  </div>
+</section>
+
+<section class="scene transit" data-type="transit" id="t2">
+  <video class="transit-video" muted playsinline loop preload="none" data-src="assets/sun-jupiter.mp4"></video>
+</section>
+
+<section class="scene stop" id="jupiter" data-planet="jupiter">
+  <div class="planet-visual jupiter-visual"><div class="red-spot"></div></div>
+  <div class="stop-text">
+    <span class="stop-label">Остановка 2 — Юпитер 🪐</span>
+    <h2>Самая большая планета системы —<br>но твоё сердце явно больше <span class="emoji">🥹❤️</span></h2>
+  </div>
+</section>
+
+<section class="scene transit" data-type="transit" id="t3">
+  <video class="transit-video" muted playsinline loop preload="none" data-src="assets/jupiter-saturn.mp4"></video>
+</section>
+
+<section class="scene stop" id="saturn" data-planet="saturn">
+  <div class="planet-visual saturn-visual"><div class="rings"></div></div>
+  <div class="stop-text">
+    <span class="stop-label">Остановка 3 — Сатурн 💍</span>
+    <h2>Даже кольца здесь надевают что-то красивое —<br>сегодня твой день, выбор за тобой <span class="emoji">😉</span></h2>
+  </div>
+</section>
+
+<section class="scene transit" data-type="transit" id="t4">
+  <video class="transit-video" muted playsinline loop preload="none" data-src="assets/saturn-neptune.mp4"></video>
+</section>
+
+<section class="scene stop final" id="neptune" data-planet="neptune">
+  <div class="planet-visual neptune-visual"></div>
+  <div class="stop-text">
+    <span class="stop-label">Конечная — Нептун 💙</span>
+    <h1>С днём рождения,<br>мой любимый <span class="name">Ангелочек</span>! <span class="emoji">😚❤️</span></h1>
+    <p>Мы облетели половину системы, чтобы сказать это правильно: пусть этот год будет ярче любой звезды на этом пути. Обнимаю крепко-крепко <span class="emoji">🐾✨</span></p>
+  </div>
+</section>
+
+<footer>сделано с любовью, под этим же небом 🌙</footer>
+
+<script>
+  /* ===== Warp starfield (fallback while real videos not connected) ===== */
+  const canvas = document.getElementById('warp');
+  const ctx = canvas.getContext('2d');
+  let w,h,cx,cy;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const STAR_COUNT = 480;
+  let stars = [];
+
+  function resize(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+    cx = w/2; cy = h/2;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  function makeStar(){
+    return { x:(Math.random()*2-1), y:(Math.random()*2-1), z:Math.random()*1+0.05, pz:0 };
+  }
+  for(let i=0;i<STAR_COUNT;i++){ const s = makeStar(); s.pz = s.z; stars.push(s); }
+
+  let currentSpeed = 0.4;
+  let targetSpeed = 0.4;
+  const BASE_SPEED = 0.4;
+  const MAX_SPEED = 9;
+
+  function drawFrame(){
+    ctx.fillStyle = 'rgba(10,14,36,0.4)';
+    ctx.fillRect(0,0,w,h);
+
+    currentSpeed += (targetSpeed - currentSpeed) * 0.06;
+
+    for(const s of stars){
+      s.pz = s.z;
+      s.z -= currentSpeed * 0.01;
+      if(s.z <= 0.02){
+        s.x = Math.random()*2-1;
+        s.y = Math.random()*2-1;
+        s.z = 1;
+        s.pz = 1;
+      }
+      const focal = 300;
+      const sx = cx + (s.x/s.z) * focal;
+      const sy = cy + (s.y/s.z) * focal;
+      const psx = cx + (s.x/s.pz) * focal;
+      const psy = cy + (s.y/s.pz) * focal;
+
+      const alpha = Math.min(1, (1 - s.z) * 1.3 + 0.15);
+      ctx.strokeStyle = `rgba(244,241,234,${alpha})`;
+      ctx.lineWidth = Math.max(0.6, (1-s.z)*2.2);
+      ctx.beginPath();
+      ctx.moveTo(psx, psy);
+      ctx.lineTo(sx, sy);
+      ctx.stroke();
+    }
+    requestAnimationFrame(drawFrame);
+  }
+  requestAnimationFrame(drawFrame);
+
+  /* ===== Scroll-driven warp speed + text reveal ===== */
+  const transitSections = document.querySelectorAll('.scene.transit');
+  const stopTexts = document.querySelectorAll('.stop-text');
+
+  function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+
+  function updateWarpSpeed(){
+    let maxComputed = BASE_SPEED;
+    transitSections.forEach(sec => {
+      const rect = sec.getBoundingClientRect();
+      const progress = clamp((window.innerHeight - rect.top) / (rect.height + window.innerHeight), 0, 1);
+      if(progress > 0 && progress < 1){
+        const hump = Math.sin(progress * Math.PI);
+        const speed = BASE_SPEED + (MAX_SPEED - BASE_SPEED) * hump;
+        if(speed > maxComputed) maxComputed = speed;
+      }
+    });
+    targetSpeed = reduceMotion ? BASE_SPEED : maxComputed;
+  }
+
+  let ticking = false;
+  window.addEventListener('scroll', () => {
+    if(!ticking){
+      requestAnimationFrame(() => { updateWarpSpeed(); ticking = false; });
+      ticking = true;
+    }
+  }, { passive:true });
+  updateWarpSpeed();
+
+  /* Reveal stop text on view */
+  const textObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if(e.isIntersecting) e.target.classList.add('visible');
+    });
+  }, { threshold:0.4 });
+  stopTexts.forEach(t => textObserver.observe(t));
+
+  /* ===== Optional real video playback (progressive enhancement) ===== */
+  document.querySelectorAll('.transit-video').forEach(video => {
+    video.src = video.dataset.src;
+    video.addEventListener('loadeddata', () => video.classList.add('video-ready'));
+    video.addEventListener('error', () => { /* stays hidden, canvas warp shows through */ });
+  });
+  const videoObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      const video = e.target.querySelector('.transit-video');
+      if(!video) return;
+      if(e.isIntersecting) video.play().catch(()=>{});
+      else video.pause();
+    });
+  }, { threshold:0.15 });
+  transitSections.forEach(s => videoObserver.observe(s));
+
+  /* ===== Dot navigation + scroll-spy ===== */
+  const dotButtons = document.querySelectorAll('nav.dots button');
+  dotButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById(btn.dataset.target).scrollIntoView({ behavior:'smooth' });
+    });
+  });
+  const stopSections = document.querySelectorAll('.scene.stop');
+  const spyObserver = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if(e.isIntersecting){
+        dotButtons.forEach(b => b.classList.toggle('active', b.dataset.target === e.target.id));
+      }
+    });
+  }, { threshold:0.5 });
+  stopSections.forEach(s => spyObserver.observe(s));
+
+
+  /* ===== Фоновая музыка (реальный mp3) =====
+     Пытаемся запустить трек по-настоящему автоматически: старт идёт в
+     приглушённом (muted) режиме — это браузеры разрешают без клика — а
+     громкость включаем при первом же настоящем действии пользователя
+     (клик/тап/нажатие клавиши — это то, что браузер признаёт "жестом"),
+     поэтому звук становится слышен сам, без обязательного нажатия на кнопку. */
+  (function(){
+    const toggleBtn = document.getElementById('soundToggle');
+    const bgm = document.getElementById('bgm');
+    let unlocked = false;
+    let soundOn = true;
+
+    bgm.volume = 0.55;
+
+    function tryPlay(){
+      const p = bgm.play();
+      if(p && p.catch) p.catch(() => { /* браузер пока не разрешил — попробуем при следующем жесте */ });
+    }
+
+    function reflectUI(){
+      toggleBtn.classList.toggle('muted', !soundOn);
+      toggleBtn.textContent = soundOn ? '🔊' : '🔈';
+      toggleBtn.setAttribute('aria-label', soundOn ? 'Выключить музыку' : 'Включить музыку');
+    }
+
+    function turnOn(){
+      unlocked = true;
+      soundOn = true;
+      bgm.muted = false;
+      tryPlay();
+      reflectUI();
+    }
+
+    function turnOff(){
+      soundOn = false;
+      bgm.muted = true;
+      reflectUI();
+    }
+
+    function unlockSound(){
+      if(unlocked) return;
+      turnOn();
+    }
+
+    toggleBtn.addEventListener('click', () => {
+      // первое нажатие всегда включает звук (это и есть разблокирующий жест);
+      // дальше кнопка работает как обычный переключатель вкл/выкл
+      if(!unlocked || !soundOn){ turnOn(); }
+      else{ turnOff(); }
+    });
+
+    // Попытка автозапуска сразу при загрузке (проходит в muted-режиме)
+    tryPlay();
+
+    // Любой клик/тап или нажатие клавиши где-либо на странице разблокирует звук.
+    // Используем только 'click' и 'keydown' — если бы тут были ещё и 'pointerdown'
+    // или 'touchstart', то для одного и того же нажатия на саму кнопку событие
+    // сначала включало бы звук, а последующий 'click' на кнопке тут же выключал
+    // бы его обратно (кнопка вызывала бы сама себя).
+    window.addEventListener('click', unlockSound, { once:true, passive:true });
+    window.addEventListener('keydown', unlockSound, { once:true, passive:true });
+  })();
+</script>
+
+</body>
+</html>
